@@ -15,7 +15,8 @@ struct FSharedTimelineTask {
 	// Unique ID handle for this task
 	int32 Id = INDEX_NONE;
 
-	UCurveFloat* Curve = nullptr;
+	UPROPERTY()
+	TObjectPtr<UCurveFloat> Curve = nullptr;
 
 	// Duration for the timeline (if <= 0 and Curve is present, we will use curve max time)
 	float Duration = 0.f;
@@ -27,6 +28,7 @@ struct FSharedTimelineTask {
 		Looping  = 1 << 2,
 		Reverse  = 1 << 3,
 		DurationOnly  = 1 << 4,
+		Ratio    = 1 << 5
 	};
 	uint8 Flags = Active;
 
@@ -42,12 +44,14 @@ struct FSharedTimelineTask {
 	FORCEINLINE bool IsLooping() const { return (Flags & Looping) != 0; }
 	FORCEINLINE bool IsReversing() const { return (Flags & Reverse) != 0; }
 	FORCEINLINE bool IsDurationOnly() const { return (Flags & DurationOnly) != 0; }
+	FORCEINLINE bool IsRatio() const { return (Flags & Ratio) != 0; }
 	
 	FORCEINLINE void SetActive(const bool b) { b ? (Flags |= Active) : (Flags &= ~Active); }
 	FORCEINLINE void SetPaused(const bool b) { b ? (Flags |= Paused) : (Flags &= ~Paused); }
 	FORCEINLINE void SetLooping(const bool b) { b ? (Flags |= Looping) : (Flags &= ~Looping); }
 	FORCEINLINE void SetReverse(const bool b) { b ? (Flags |= Reverse) : (Flags &= ~Reverse); }
 	FORCEINLINE void SetDurationOnly(const bool b) { b ? (Flags |= DurationOnly) : (Flags &= ~DurationOnly); }
+	FORCEINLINE void SetRatio(const bool b) { b ? (Flags |= Ratio) : (Flags &= ~Ratio); }
 };
 
 /**
@@ -75,8 +79,9 @@ public:
 	 * @param FinishedDelegate  Delegate called when timeline finished
 	 * @param StartTime 
 	 * @param bDurationOnly If true, the timeline will output elapsed time instead of curve value
+	 * @param bUseRatio If true, the timeline will output ratio (Elapsed / Duration ) instead of curve value
 	 */
-	void PlayTimeline(int32& OutHandle, UCurveFloat* Curve, float InDuration, bool bLoop = false, TFunction<void(float)> OnUpdate = nullptr, TFunction<void()> OnFinished = nullptr, float StartTime = 0.f, bool bDurationOnly = false);
+	void PlayTimeline(int32& OutHandle, UCurveFloat* Curve, float InDuration, bool bLoop = false, TFunction<void(float)> OnUpdate = nullptr, TFunction<void()> OnFinished = nullptr, float StartTime = 0.f, bool bDurationOnly = false, bool bUseRatio = false);
 
 	
 	/**
@@ -89,11 +94,12 @@ public:
 	 * @param FinishedDelegate  Delegate called when timeline finished
 	 * @param StartTime 
 	 * @param bDurationOnly If true, the timeline will output elapsed time instead of curve value
+	 * @param bUseRatio If true, the timeline will output ratio (Elapsed / Duration ) instead of curve value
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SharedTimeline")
 	void PlayTimeline_BP(int32& OutHandle, UCurveFloat* Curve, float InDuration,
 	                     bool bLoop, FSharedTimelineBPUpdate UpdateDelegate, FSharedTimelineBPFinished FinishedDelegate, 
-	                     float StartTime = 0.f, bool bDurationOnly = false);
+	                     float StartTime = 0.f, bool bDurationOnly = false, bool bUseRatio = false);
 	UFUNCTION(BLueprintCallable, Category = "SharedTimeline")
 	void ReverseTimeline(const int32& InHandle);
 
@@ -116,7 +122,7 @@ protected:
 	//================================================================================================================
 	int32 FindTaskIndexById(int32 Handle) const;
 
-	void SetBasePropertiesOfNewTask(FSharedTimelineTask& Task, UCurveFloat* Curve, const float InDuration, const bool bLoop, const float StartTime, const bool bValueOnly);
+	void SetBasePropertiesOfNewTask(FSharedTimelineTask& Task, UCurveFloat* Curve, const float InDuration, const bool bLoop, const float StartTime, const bool bValueOnly, const bool bUseRatio);
 
 	
 	//================================================================================================================
