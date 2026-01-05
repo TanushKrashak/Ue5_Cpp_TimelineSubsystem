@@ -52,8 +52,9 @@ void UCpp_SharedTimelineSubsystem::Tick(float DeltaTime) {
 		}
 		
 		// evaluate curve or linear
-		const float Value = Task.IsDurationOnly() ? Task.Elapsed : Task.Curve->GetFloatValue(Task.Elapsed);
-
+		const float Ratio = Task.IsRatio() ? FMath::Clamp(Task.Elapsed / UseDuration, 0.f, 1.f) : Task.Elapsed;
+		const float Value = Task.IsDurationOnly() ? Task.Elapsed : Task.Curve->GetFloatValue(Ratio);
+ 
 		// call update callbacks (C++ first then BP)
 		if (Task.CPP_Update) {
 			Task.CPP_Update(Value);
@@ -81,14 +82,14 @@ bool UCpp_SharedTimelineSubsystem::IsTickable() const {
 	return true;
 }
 
-void UCpp_SharedTimelineSubsystem::PlayTimeline(int32& OutHandle, UCurveFloat* Curve, const float InDuration, const bool bLoop, TFunction<void(float)> OnUpdate, TFunction<void()> OnFinished, const float StartTime, const bool bDurationOnly) {
+void UCpp_SharedTimelineSubsystem::PlayTimeline(int32& OutHandle, UCurveFloat* Curve, const float InDuration, const bool bLoop, TFunction<void(float)> OnUpdate, TFunction<void()> OnFinished, const float StartTime, const bool bDurationOnly, const bool bUseRatio) {
 	if (!Curve) {
 		OutHandle = INDEX_NONE;
 		return;
 	}
 
 	FSharedTimelineTask NewTask;
-	SetBasePropertiesOfNewTask(NewTask, Curve, InDuration, bLoop, StartTime, bDurationOnly);
+	SetBasePropertiesOfNewTask(NewTask, Curve, InDuration, bLoop, StartTime, bDurationOnly, bUseRatio);
 	NewTask.CPP_Update = MoveTemp(OnUpdate);
 	NewTask.CPP_Finished = MoveTemp(OnFinished);
 
@@ -96,14 +97,14 @@ void UCpp_SharedTimelineSubsystem::PlayTimeline(int32& OutHandle, UCurveFloat* C
 	OutHandle = NewTask.Id;
 }
 
-void UCpp_SharedTimelineSubsystem::PlayTimeline_BP(int32& OutHandle, UCurveFloat* Curve, const float InDuration, const bool bLoop, const FSharedTimelineBPUpdate UpdateDelegate, const FSharedTimelineBPFinished FinishedDelegate, const float StartTime, const bool bDurationOnly) {
+void UCpp_SharedTimelineSubsystem::PlayTimeline_BP(int32& OutHandle, UCurveFloat* Curve, const float InDuration, const bool bLoop, const FSharedTimelineBPUpdate UpdateDelegate, const FSharedTimelineBPFinished FinishedDelegate, const float StartTime, const bool bDurationOnly, const bool bUseRatio) {
 	if (!Curve) {
 		OutHandle = INDEX_NONE;
 		return;
 	}
 
 	FSharedTimelineTask NewTask;
-	SetBasePropertiesOfNewTask(NewTask, Curve, InDuration, bLoop, StartTime, bDurationOnly);
+	SetBasePropertiesOfNewTask(NewTask, Curve, InDuration, bLoop, StartTime, bDurationOnly, bUseRatio);
 	NewTask.BP_Update = UpdateDelegate;
 	NewTask.BP_Finished = FinishedDelegate;
 
@@ -167,7 +168,7 @@ int32 UCpp_SharedTimelineSubsystem::FindTaskIndexById(const int32 Handle) const 
 	return INDEX_NONE;
 }
 
-void UCpp_SharedTimelineSubsystem::SetBasePropertiesOfNewTask(FSharedTimelineTask& Task, UCurveFloat* Curve, const float InDuration, const bool bLoop, const float StartTime, const bool bValueOnly) {
+void UCpp_SharedTimelineSubsystem::SetBasePropertiesOfNewTask(FSharedTimelineTask& Task, UCurveFloat* Curve, const float InDuration, const bool bLoop, const float StartTime, const bool bValueOnly, const bool bUseRatio) {
 	Task.Id = NextId++;
 	Task.Curve = Curve;
 	Task.Duration = InDuration;
@@ -176,4 +177,5 @@ void UCpp_SharedTimelineSubsystem::SetBasePropertiesOfNewTask(FSharedTimelineTas
 	Task.SetActive(true);
 	Task.SetPaused(false);
 	Task.SetDurationOnly(bValueOnly);
+	Task.SetRatio(bUseRatio);
 }
